@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ profile_user.username }} - Abonnements{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- En-tête profil -->
+            <div class="post-card p-3 mb-3">
+                <div class="d-flex align-items-center">
+                    <img src="{{ profile_user.profile.get_profile_picture_url }}"
+                         alt="" class="profile-img-lg me-3">
+                    <div>
+                        <h4 class="mb-1">{{ profile_user.username }}</h4>
+                        <p class="text-muted mb-0">@{{ profile_user.username }}</p>
+                    </div>
+                </div>
+
+                <!-- Onglets -->
+                <ul class="nav nav-tabs mt-3">
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           href="{% url 'social:followers_list' profile_user.username %}">
+                            Abonnés ({{ profile_user.profile.followers_count }})
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active"
+                           href="{% url 'social:following_list' profile_user.username %}">
+                            Abonnements ({{ profile_user.profile.following_count }})
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Liste des abonnements -->
+            <div class="post-card">
+                {% for follow in following %}
+                <div class="p-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'users:profile' follow.following.username %}">
+                            <img src="{{ follow.following.profile.get_profile_picture_url }}"
+                                 alt="" class="profile-img me-3">
+                        </a>
+                        <div class="flex-grow-1">
+                            <a href="{% url 'users:profile' follow.following.username %}"
+                               class="text-decoration-none text-dark">
+                                <strong>{{ follow.following.username }}</strong>
+                            </a>
+                            {% if follow.following.bio %}
+                            <p class="text-muted small mb-0">{{ follow.following.bio|truncatewords:15 }}</p>
+                            {% endif %}
+                        </div>
+
+                        {% if follow.following != user %}
+                        <button class="btn btn-sm btn-outline-primary"
+                                onclick="followUser('{{ follow.following.username }}', this)">
+                            Abonné
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center">
+                    <i class="bi bi-person-plus display-1 text-muted"></i>
+                    <p class="mt-3 text-muted">Aucun abonnement pour le moment</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

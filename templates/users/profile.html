@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ profile_user.username }} - Profil{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Photo de couverture -->
+    <div class="post-card overflow-hidden">
+        {% if profile_user.profile.cover_photo %}
+        <img src="{{ profile_user.profile.cover_photo.url }}"
+             class="w-100" style="height: 300px; object-fit: cover;" alt="">
+        {% else %}
+        <div style="height: 300px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+        {% endif %}
+
+        <!-- Informations du profil -->
+        <div class="p-4 position-relative">
+            <img src="{{ profile_user.profile.profile_picture.url }}"
+                 alt="" class="profile-img-lg position-absolute"
+                 style="top: -75px; left: 30px;">
+
+            <div class="d-flex justify-content-end mb-5">
+                {% if user == profile_user %}
+                <a href="{% url 'users:edit_profile' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil"></i> Modifier le profil
+                </a>
+                {% else %}
+                <button id="follow-btn" class="btn {% if is_following %}btn-outline-primary{% else %}btn-primary{% endif %}"
+                        onclick="followUser('{{ profile_user.username }}')">
+                    {% if is_following %}Ne plus suivre{% else %}Suivre{% endif %}
+                </button>
+                {% endif %}
+            </div>
+
+            <h2 class="mb-1">{{ profile_user.get_full_name|default:profile_user.username }}</h2>
+            <p class="text-muted">@{{ profile_user.username }}</p>
+
+            {% if profile_user.bio %}
+            <p class="mb-3">{{ profile_user.bio }}</p>
+            {% endif %}
+
+            <div class="d-flex gap-4 text-muted">
+                {% if profile_user.location %}
+                <span><i class="bi bi-geo-alt"></i> {{ profile_user.location }}</span>
+                {% endif %}
+                {% if profile_user.website %}
+                <span><i class="bi bi-link-45deg"></i>
+                    <a href="{{ profile_user.website }}" target="_blank">{{ profile_user.website }}</a>
+                </span>
+                {% endif %}
+                <span><i class="bi bi-calendar"></i> Membre depuis {{ profile_user.date_joined|date:"F Y" }}</span>
+            </div>
+
+            <div class="d-flex gap-4 mt-3">
+                <a href="{% url 'users:profile' user.username %}" class="text-decoration-none text-dark">
+                    <strong>{{ profile_user.profile.posts_count }}</strong>
+                    <span class="text-muted">Posts</span>
+                </a>
+                <a href="{% url 'social:followers_list' profile_user.username %}" class="text-decoration-none text-dark">
+                    <strong id="followers-count">{{ profile_user.profile.followers_count }}</strong>
+                    <span class="text-muted">Abonnés</span>
+                </a>
+                <a href="{% url 'social:following_list' profile_user.username %}" class="text-decoration-none text-dark">
+                    <strong>{{ profile_user.profile.following_count }}</strong>
+                    <span class="text-muted">Abonnements</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Posts de l'utilisateur -->
+    <div class="row mt-4">
+        <div class="col-lg-8 mx-auto">
+            <h4 class="mb-3">Posts</h4>
+
+            {% for post in posts %}
+            <div class="post-card">
+                <div class="p-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ post.author.profile.profile_picture.url }}" alt="" class="profile-img me-2">
+                        <div>
+                            <div class="fw-bold">{{ post.author.username }}</div>
+                            <div class="text-muted small">{{ post.created_at|timesince }} ago</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3">
+                    <p>{{ post.content }}</p>
+
+                    {% if post.image %}
+                    <img src="{{ post.image.url }}" class="img-fluid rounded" alt="">
+                    {% endif %}
+
+                    {% if post.video %}
+                    <video controls class="w-100 rounded">
+                        <source src="{{ post.video.url }}" type="video/mp4">
+                    </video>
+                    {% endif %}
+                </div>
+
+                <div class="border-top p-2">
+                    <div class="d-flex justify-content-around">
+                        <button class="btn btn-sm btn-light flex-fill" onclick="likePost({{ post.id }})">
+                            <i class="bi bi-heart"></i> {{ post.likes_count }}
+                        </button>
+                        <a href="{% url 'posts:post_detail' post.id %}" class="btn btn-sm btn-light flex-fill">
+                            <i class="bi bi-chat"></i> {{ post.comments_count }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="post-card p-4 text-center">
+                <i class="bi bi-file-earmark-text display-1 text-muted"></i>
+                <p class="mt-3 text-muted">Aucun post pour le moment</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

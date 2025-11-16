@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Modifier le profil{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="post-card p-4">
+                <h3 class="mb-4"><i class="bi bi-gear"></i> Modifier le profil</h3>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <h5 class="border-bottom pb-2 mb-3">Informations personnelles</h5>
+                    {{ u_form|crispy }}
+
+                    <h5 class="border-bottom pb-2 mb-3 mt-4">Photos</h5>
+                    {{ p_form|crispy }}
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        <a href="{% url 'users:profile' user.username %}" class="btn btn-outline-secondary">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
