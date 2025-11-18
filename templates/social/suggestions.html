@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Suggestions - Personnes à suivre{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="post-card">
+                <div class="p-3 border-bottom">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-plus-fill text-primary"></i>
+                        Suggestions pour vous
+                    </h4>
+                </div>
+
+                {% for user in suggestions %}
+                <div class="p-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'users:profile' user.username %}">
+                            <img src="{{ user.profile.get_profile_picture_url }}"
+                                 alt="" class="profile-img-lg me-3">
+                        </a>
+                        <div class="flex-grow-1">
+                            <a href="{% url 'users:profile' user.username %}"
+                               class="text-decoration-none text-dark">
+                                <h5 class="mb-1">{{ user.username }}</h5>
+                            </a>
+                            {% if user.bio %}
+                            <p class="text-muted mb-1">{{ user.bio|truncatewords:20 }}</p>
+                            {% endif %}
+                            <div class="text-muted small">
+                                <span><i class="bi bi-people"></i> {{ user.profile.followers_count }} abonnés</span>
+                                <span class="ms-2"><i class="bi bi-file-text"></i> {{ user.profile.posts_count }} posts</span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary"
+                                onclick="followUser('{{ user.username }}', this)">
+                            Suivre
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center">
+                    <i class="bi bi-search display-1 text-muted"></i>
+                    <p class="mt-3 text-muted">Aucune suggestion pour le moment</p>
+                    <a href="{% url 'social:search_users' %}" class="btn btn-primary">
+                        Rechercher des personnes
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

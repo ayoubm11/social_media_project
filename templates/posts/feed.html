@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block title %}Fil d'actualités{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Colonne principale -->
+        <div class="col-lg-8">
+            <!-- Créer un post -->
+            <div class="post-card p-3 mb-3">
+                <form method="post" action="{% url 'posts:create_post' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="d-flex mb-2">
+                        <img src="{{ user.profile.profile_picture.url }}" alt="" class="profile-img me-2">
+                        <textarea name="content" class="form-control" rows="2"
+                                  placeholder="Quoi de neuf, {{ user.username }}?"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <label class="btn btn-sm btn-light me-2">
+                                <i class="bi bi-image text-success"></i> Photo
+                                <input type="file" name="image" accept="image/*" hidden>
+                            </label>
+                            <label class="btn btn-sm btn-light">
+                                <i class="bi bi-camera-video text-danger"></i> Vidéo
+                                <input type="file" name="video" accept="video/*" hidden>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Publier</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Posts -->
+            {% for post in posts %}
+
+    {% if post.is_shared %}
+        <!-- Post partagé -->
+        {% include 'posts/components/shared_post_card.html' %}
+
+    {% else %}
+        <!-- Post normal -->
+        <div class="post-card">
+
+            <!-- En-tête -->
+            <div class="p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <img src="{{ post.author.profile.profile_picture.url }}"
+                         class="profile-img me-2">
+
+                    <div class="flex-grow-1">
+                        <a href="{% url 'users:profile' post.author.username %}"
+                           class="text-decoration-none text-dark fw-bold">
+                            {{ post.author.username }}
+                        </a>
+
+                        <div class="text-muted small">
+                            {{ post.created_at|timesince }} ago
+                        </div>
+                    </div>
+
+                    {% if post.author == user %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item text-danger"
+                                   href="{% url 'posts:delete_post' post.id %}">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Contenu -->
+            <div class="p-3">
+                <p>{{ post.content }}</p>
+
+                {% if post.image %}
+                <img src="{{ post.image.url }}" class="img-fluid rounded">
+                {% endif %}
+
+                {% if post.video %}
+                <video controls class="w-100 rounded">
+                    <source src="{{ post.video.url }}" type="video/mp4">
+                </video>
+                {% endif %}
+            </div>
+
+            <!-- Actions -->
+            <div class="border-top p-2">
+                <div class="d-flex justify-content-around">
+                    <button class="btn btn-sm btn-light flex-fill"
+                            id="like-btn-{{ post.id }}"
+                            onclick="likePost({{ post.id }})">
+                        <i class="bi bi-heart"></i>
+                        <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+                    </button>
+
+                    <a href="{% url 'posts:post_detail' post.id %}"
+                       class="btn btn-sm btn-light flex-fill">
+                        <i class="bi bi-chat"></i> {{ post.comments_count }}
+                    </a>
+
+                    <button class="btn btn-sm btn-light flex-fill"
+                            data-bs-toggle="modal"
+                            data-bs-target="#shareModal{{ post.id }}">
+                        <i class="bi bi-share"></i>
+                        <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        {% include 'posts/share_post_modal.html' %}
+    {% endif %}
+
+{% empty %}
+<div class="post-card p-4 text-center">
+    <i class="bi bi-newspaper display-1 text-muted"></i>
+    <h5 class="mt-3">Aucun post à afficher</h5>
+    <p class="text-muted">Commencez à suivre des personnes pour voir leurs posts ici!</p>
+</div>
+{% endfor %}
+
+            <!-- Pagination -->
+            {% if posts.has_other_pages %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if posts.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ posts.previous_page_number }}">Précédent</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">{{ posts.number }}</span>
+                    </li>
+
+                    {% if posts.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ posts.next_page_number }}">Suivant</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4 d-none d-lg-block">
+            <div class="sidebar">
+                <!-- Profil utilisateur -->
+                <div class="post-card p-3 mb-3">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ user.profile.get_profile_picture_url }}"
+                             alt="" class="profile-img me-2">
+                        <div>
+                            <a href="{% url 'users:profile' user.username %}"
+                               class="text-decoration-none text-dark fw-bold d-block">
+                                {{ user.username }}
+                            </a>
+                            <small class="text-muted">@{{ user.username }}</small>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-around mt-3 pt-3 border-top">
+                        <a href="{% url 'social:followers_list' user.username %}"
+                           class="text-decoration-none text-center">
+                            <div class="fw-bold">{{ user.profile.followers_count }}</div>
+                            <small class="text-muted">Abonnés</small>
+                        </a>
+                        <a href="{% url 'social:following_list' user.username %}"
+                           class="text-decoration-none text-center">
+                            <div class="fw-bold">{{ user.profile.following_count }}</div>
+                            <small class="text-muted">Abonnements</small>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Suggestions -->
+                {% include 'includes/suggestions_sidebar.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

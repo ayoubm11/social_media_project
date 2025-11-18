@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+
+{% block title %}Post de {{ post.author.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Bouton retour -->
+            <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Retour
+            </a>
+
+            <!-- Post principal -->
+            <div class="post-card">
+                <!-- En-tête du post -->
+                <div class="p-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'users:profile' post.author.username %}">
+                            <img src="{{ post.author.profile.get_profile_picture_url }}"
+                                 alt="" class="profile-img me-2">
+                        </a>
+                        <div class="flex-grow-1">
+                            <a href="{% url 'users:profile' post.author.username %}"
+                               class="text-decoration-none text-dark fw-bold">
+                                {{ post.author.username }}
+                            </a>
+                            <div class="text-muted small">
+                                {{ post.created_at|date:"d M Y à H:i" }}
+                            </div>
+                        </div>
+                        {% if post.author == user %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item text-danger"
+                                       href="{% url 'posts:delete_post' post.id %}">
+                                        <i class="bi bi-trash"></i> Supprimer
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Contenu du post -->
+                <div class="p-3">
+                    <p style="white-space: pre-wrap;">{{ post.content }}</p>
+
+                    {% if post.image %}
+                    <img src="{{ post.image.url }}" class="img-fluid rounded" alt="">
+                    {% endif %}
+
+                    {% if post.video %}
+                    <video controls class="w-100 rounded">
+                        <source src="{{ post.video.url }}" type="video/mp4">
+                    </video>
+                    {% endif %}
+                </div>
+
+                <!-- Statistiques -->
+                <div class="px-3 py-2 border-top border-bottom">
+                    <div class="d-flex gap-3 text-muted small">
+                        <span>
+                            <strong id="like-count-{{ post.id }}">{{ post.likes_count }}</strong>
+                            {% if post.likes_count > 1 %}J'aime{% else %}J'aime{% endif %}
+                        </span>
+                        <span>
+                            <strong>{{ post.comments_count }}</strong>
+                            {% if post.comments_count > 1 %}Commentaires{% else %}Commentaire{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="border-bottom p-2">
+                    <div class="d-flex justify-content-around">
+                        <button class="btn btn-sm btn-light flex-fill {% if user_liked_post %}text-primary{% endif %}"
+                                id="like-btn-{{ post.id }}"
+                                onclick="likePost({{ post.id }})">
+                            <i class="bi bi-heart{% if user_liked_post %}-fill{% endif %}"></i>
+                            J'aime
+                        </button>
+                        <button class="btn btn-sm btn-light flex-fill"
+                                onclick="document.getElementById('comment-form').focus()">
+                            <i class="bi bi-chat"></i> Commenter
+                        </button>
+                        <button class="btn btn-sm btn-light flex-fill"
+                                data-bs-toggle="modal"
+                                data-bs-target="#shareModal{{ post.id }}">
+                            <i class="bi bi-share"></i>
+                            <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formulaire de commentaire -->
+                <div class="p-3 border-bottom">
+                    <form method="post" id="main-comment-form">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <img src="{{ user.profile.get_profile_picture_url }}"
+                                 alt="" class="profile-img">
+                            <div class="flex-grow-1">
+                                <textarea name="content"
+                                          id="comment-form"
+                                          class="form-control"
+                                          rows="2"
+                                          placeholder="Écrivez un commentaire..."
+                                          required></textarea>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-end">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-send"></i> Publier
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Liste des commentaires -->
+                <div class="comments-section">
+                    {% for comment in comments %}
+                    <div class="comment-item p-3 border-bottom" id="comment-{{ comment.id }}">
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'users:profile' comment.author.username %}">
+                                <img src="{{ comment.author.profile.get_profile_picture_url }}"
+                                     alt="" class="profile-img">
+                            </a>
+                            <div class="flex-grow-1">
+                                <div class="bg-light rounded p-2">
+                                    <a href="{% url 'users:profile' comment.author.username %}"
+                                       class="text-decoration-none text-dark">
+                                        <strong>{{ comment.author.username }}</strong>
+                                    </a>
+                                    <p class="mb-0" style="white-space: pre-wrap;">{{ comment.content }}</p>
+                                </div>
+
+                                <!-- Actions du commentaire -->
+                                <div class="mt-1 small d-flex gap-3 text-muted">
+                                    <span>{{ comment.created_at|timesince }} ago</span>
+                                    <button class="btn btn-sm btn-link p-0 text-decoration-none {% if comment.id in user_liked_comments %}text-primary{% endif %}"
+                                            onclick="likeComment({{ comment.id }})">
+                                        <i class="bi bi-heart{% if comment.id in user_liked_comments %}-fill{% endif %}"></i>
+                                        <span id="comment-like-count-{{ comment.id }}">
+                                            {% if comment.likes_count > 0 %}{{ comment.likes_count }}{% endif %}
+                                        </span>
+                                    </button>
+                                    <button class="btn btn-sm btn-link p-0 text-decoration-none"
+                                            onclick="showReplyForm({{ comment.id }})">
+                                        <i class="bi bi-reply"></i> Répondre
+                                    </button>
+                                    {% if comment.author == user %}
+                                    <form method="post"
+                                          action="{% url 'posts:delete_comment' comment.id %}"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Supprimer ce commentaire ?')">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="btn btn-sm btn-link p-0 text-decoration-none text-danger">
+                                            <i class="bi bi-trash"></i> Supprimer
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Formulaire de réponse (caché par défaut) -->
+                                <div id="reply-form-{{ comment.id }}" class="mt-2" style="display: none;">
+                                    <form method="post" class="reply-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                                        <div class="d-flex gap-2">
+                                            <img src="{{ user.profile.get_profile_picture_url }}"
+                                                 alt="" class="profile-img" style="width: 32px; height: 32px;">
+                                            <div class="flex-grow-1">
+                                                <textarea name="content"
+                                                          class="form-control form-control-sm"
+                                                          rows="2"
+                                                          placeholder="Répondre à {{ comment.author.username }}..."
+                                                          required></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-end">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    onclick="hideReplyForm({{ comment.id }})">
+                                                Annuler
+                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                Répondre
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <!-- Réponses au commentaire -->
+                                {% if comment.replies.all %}
+                                <div class="replies mt-2 ms-3">
+                                    {% for reply in comment.replies.all %}
+                                    <div class="d-flex gap-2 mb-2">
+                                        <a href="{% url 'users:profile' reply.author.username %}">
+                                            <img src="{{ reply.author.profile.get_profile_picture_url }}"
+                                                 alt="" class="profile-img" style="width: 32px; height: 32px;">
+                                        </a>
+                                        <div class="flex-grow-1">
+                                            <div class="bg-light rounded p-2">
+                                                <a href="{% url 'users:profile' reply.author.username %}"
+                                                   class="text-decoration-none text-dark">
+                                                    <strong>{{ reply.author.username }}</strong>
+                                                </a>
+                                                <p class="mb-0 small" style="white-space: pre-wrap;">{{ reply.content }}</p>
+                                            </div>
+                                            <div class="mt-1 small text-muted">
+                                                <span>{{ reply.created_at|timesince }} ago</span>
+                                                <button class="btn btn-sm btn-link p-0 text-decoration-none {% if reply.id in user_liked_comments %}text-primary{% endif %}"
+                                                        onclick="likeComment({{ reply.id }})">
+                                                    <i class="bi bi-heart{% if reply.id in user_liked_comments %}-fill{% endif %}"></i>
+                                                    <span id="comment-like-count-{{ reply.id }}">
+                                                        {% if reply.likes_count > 0 %}{{ reply.likes_count }}{% endif %}
+                                                    </span>
+                                                </button>
+                                                {% if reply.author == user %}
+                                                <form method="post"
+                                                      action="{% url 'posts:delete_comment' reply.id %}"
+                                                      style="display: inline;"
+                                                      onsubmit="return confirm('Supprimer cette réponse ?')">
+                                                    {% csrf_token %}
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-link p-0 text-decoration-none text-danger">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-4 text-center">
+                        <i class="bi bi-chat-dots display-1 text-muted"></i>
+                        <p class="mt-3 text-muted">Aucun commentaire. Soyez le premier à commenter !</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if comments.has_other_pages %}
+                <div class="p-3">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            {% if comments.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ comments.previous_page_number }}">Précédent</a>
+                            </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">{{ comments.number }}</span>
+                            </li>
+
+                            {% if comments.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ comments.next_page_number }}">Suivant</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Afficher le formulaire de réponse
+function showReplyForm(commentId) {
+    document.getElementById('reply-form-' + commentId).style.display = 'block';
+}
+
+// Masquer le formulaire de réponse
+function hideReplyForm(commentId) {
+    document.getElementById('reply-form-' + commentId).style.display = 'none';
+}
+
+// Liker un commentaire
+function likeComment(commentId) {
+    fetch(`/post/comment/${commentId}/like/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const likeCountSpan = document.getElementById(`comment-like-count-${commentId}`);
+        if (data.likes_count > 0) {
+            likeCountSpan.textContent = data.likes_count;
+        } else {
+            likeCountSpan.textContent = '';
+        }
+
+        // Mettre à jour l'icône
+        const button = likeCountSpan.parentElement;
+        const icon = button.querySelector('i');
+        if (data.liked) {
+            icon.classList.add('bi-heart-fill');
+            icon.classList.remove('bi-heart');
+            button.classList.add('text-primary');
+        } else {
+            icon.classList.remove('bi-heart-fill');
+            icon.classList.add('bi-heart');
+            button.classList.remove('text-primary');
+        }
+    });
+}
+</script>
+{% endblock %}

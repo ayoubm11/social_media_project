@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Chatter avec {{ target_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="post-card p-3">
+        <div class="d-flex align-items-center mb-3">
+            <img src="{{ target_user.profile.get_profile_picture_url }}" alt="" class="profile-img me-2">
+            <div>
+                <div class="fw-bold">{{ target_user.get_full_name|default:target_user.username }}</div>
+                <div class="text-muted small">@{{ target_user.username }} <span id="presence-status" class="ms-2"></span></div>
+            </div>
+        </div>
+
+        <div id="chat-box" style="height:400px; overflow:auto; background:#f8f9fa; padding:1rem; border-radius:6px;">
+            {% if messages %}
+                {% for m in messages %}
+                    <div class="mb-2">
+                        <strong>{{ m.sender }}:</strong> {{ m.content }}
+                        <div class="text-muted small">{{ m.created_at }}</div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Aucun message pour le moment.</p>
+            {% endif %}
+        </div>
+
+        <form id="chat-form" class="d-flex gap-2 mt-3">
+            <input type="text" class="form-control" placeholder="Écrire un message..." id="chat-message" autocomplete="off">
+            <button class="btn btn-primary" id="send-btn">Envoyer</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const conversationId = '{{ conversation.id }}';
+        const userName = '{{ request.user.username }}';
+        const chatBox = document.getElementById('chat-box');
+        const input = document.getElementById('chat-message');
+        const form = document.getElementById('chat-form');
+        const readMessages = new Set(); // Track already-read messages
+
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = protocol + '://' + window.location.host + '/ws/chat/' + conversationId + '/';
+        const socket = new WebSocket(wsUrl);
+
+        function appendMessage({id, sender, content, created_at, status, temp_id}){
+            const el = document.createElement('div');
+            el.className = 'mb-2 message-item';
+            if(temp_id) el.setAttribute('data-temp-id', temp_id);
+            if(id) el.setAttribute('data-message-id', id);
+
+            // status icons: sending (spinner), sent (✓), delivered (✓✓), read (✓✓ blue)
+            let statusHtml = '';
+            if(status === 'sending'){
+                statusHtml = '<span class="text-muted ms-2">⏳</span>';
+            } else if(status === 'sent'){
+                statusHtml = '<span class="text-muted ms-2">✓</span>';
+            } else if(status === 'delivered'){
+                statusHtml = '<span class="text-muted ms-2">✓✓</span>';
+            } else if(status === 'read'){
+                statusHtml = '<span class="text-primary ms-2">✓✓</span>';
+            }
+
+            el.innerHTML = `<strong>${sender}:</strong> ${content} ${statusHtml}<div class="text-muted small">${created_at}</div>`;
+            chatBox.appendChild(el);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return el;
+        }
+
+        socket.onopen = function() {
+            console.log('WebSocket connected');
+            // mark existing incoming messages as delivered
+            document.querySelectorAll('#chat-box [data-message-id]').forEach(function(node){
+                const mid = node.getAttribute('data-message-id');
+                const sender = node.querySelector('strong')?.innerText?.replace(':','') || '';
+                if(sender !== userName){
+                    socket.send(JSON.stringify({action: 'delivered', message_id: mid}));
+                }
+            });
+        };
+
+        socket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                const event = data.event;
+
+                if(event === 'new_message'){
+                    const msg = data.message;
+                    // if temp_id provided, match local element and replace
+                    if(data.temp_id){
+                        const temp = document.querySelector('[data-temp-id="'+data.temp_id+'"]');
+                        if(temp){
+                            temp.setAttribute('data-message-id', msg.id);
+                            // update status to sent
+                            temp.innerHTML = `<strong>${msg.sender}:</strong> ${msg.content} <span class="text-muted ms-2">✓</span><div class="text-muted small">${msg.created_at}</div>`;
+                            return;
+                        }
+                    }
+
+                    // Otherwise append new message
+                    const isMe = msg.sender === userName;
+                    const status = isMe ? 'sent' : 'delivered';
+                    const el = appendMessage({id: msg.id, sender: msg.sender, content: msg.content, created_at: msg.created_at, status: status});
+
+                    // If I am recipient (not sender), acknowledge delivered
+                    if(!isMe){
+                        socket.send(JSON.stringify({action: 'delivered', message_id: msg.id}));
+                    }
+                }
+
+                else if(event === 'delivered'){
+                    const mid = data.message.id;
+                    const node = document.querySelector('[data-message-id="'+mid+'"]');
+                    if(node){
+                        // update to delivered icon - replace only the status span
+                        let html = node.innerHTML;
+                        // Find and replace the status icon (last span before the time div)
+                        html = html.replace(/(<span class="text-(?:muted|primary) ms-2">)[^<]*(<\/span>)/g, '$1✓✓$2');
+                        html = html.replace('text-primary', 'text-muted');
+                        node.innerHTML = html;
+                    }
+                }
+
+                else if(event === 'read'){
+                    const mid = data.message.id;
+                    if(!readMessages.has(mid)){  // Only update once
+                        readMessages.add(mid);
+                        const node = document.querySelector('[data-message-id="'+mid+'"]');
+                        if(node){
+                            // update to read (blue ticks) - replace status span and add blue class
+                            let html = node.innerHTML;
+                            html = html.replace(/(<span class="text-muted ms-2">)[^<]*(<\/span>)/g, '$1✓✓$2');
+                            html = html.replace('text-muted', 'text-primary');
+                            node.innerHTML = html;
+                        }
+                    }
+                }
+                else if(event === 'presence'){
+                    const user = data.user;
+                    const status = data.status; // 'online'|'offline'
+                    const badge = document.getElementById('presence-status');
+                    if(badge){
+                        if(user === '{{ target_user.username }}'){
+                            if(status === 'online'){
+                                badge.innerHTML = '<span class="badge bg-success">En ligne</span>';
+                            } else {
+                                badge.innerHTML = '<span class="badge bg-secondary">Hors ligne</span>';
+                            }
+                        }
+                    }
+                }
+
+            } catch(err) {
+                console.error('Invalid message', err);
+            }
+        };
+
+        socket.onclose = function() {
+            console.log('WebSocket closed');
+        };
+
+        form.addEventListener('submit', function(e){
+            e.preventDefault();
+            const msg = input.value.trim();
+            if(!msg) return;
+
+            const tempId = 't' + Date.now();
+            // optimistic append
+            appendMessage({temp_id: tempId, sender: userName, content: msg, created_at: new Date().toISOString(), status: 'sending'});
+
+            socket.send(JSON.stringify({action: 'send', message: msg, temp_id: tempId}));
+            input.value = '';
+        });
+
+        // mark messages visible as read when window focused (throttle to avoid duplicates)
+        let readTimeout;
+        window.addEventListener('focus', function(){
+            clearTimeout(readTimeout);
+            readTimeout = setTimeout(function(){
+                document.querySelectorAll('#chat-box .message-item').forEach(function(node){
+                    const mid = node.getAttribute('data-message-id');
+                    const sender = node.querySelector('strong')?.innerText?.replace(':','') || '';
+                    if(mid && sender !== userName && !readMessages.has(mid)){
+                        readMessages.add(mid);
+                        socket.send(JSON.stringify({action: 'read', message_id: mid}));
+                    }
+                });
+            }, 300);  // Delay to avoid rapid multiple sends
+        });
+
+    })();
+</script>
+{% endblock %}
