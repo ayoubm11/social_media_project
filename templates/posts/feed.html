@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="row">
         <!-- Colonne principale -->
-        <div class="col-lg-8 mx-auto">
+        <div class="col-lg-8">
             <!-- Créer un post -->
             <div class="post-card p-3 mb-3">
                 <form method="post" action="{% url 'posts:create_post' %}" enctype="multipart/form-data">
@@ -35,79 +35,101 @@
 
             <!-- Posts -->
             {% for post in posts %}
-            <div class="post-card">
-                <!-- En-tête du post -->
-                <div class="p-3 border-bottom">
-                    <div class="d-flex align-items-center">
-                        <img src="{{ post.author.profile.profile_picture.url }}" alt="" class="profile-img me-2">
-                        <div class="flex-grow-1">
-                            <a href="{% url 'users:profile' post.author.username %}"
-                               class="text-decoration-none text-dark fw-bold">
-                                {{ post.author.username }}
-                            </a>
-                            <div class="text-muted small">
-                                {{ post.created_at|timesince }} ago
-                            </div>
-                        </div>
-                        {% if post.author == user %}
-                        <div class="dropdown">
-                            <button class="btn btn-sm" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item text-danger"
-                                       href="{% url 'posts:delete_post' post.id %}">
-                                        <i class="bi bi-trash"></i> Supprimer
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
 
-                <!-- Contenu du post -->
-                <div class="p-3">
-                    <p>{{ post.content }}</p>
+    {% if post.is_shared %}
+        <!-- Post partagé -->
+        {% include 'posts/components/shared_post_card.html' %}
 
-                    {% if post.image %}
-                    <img src="{{ post.image.url }}" class="img-fluid rounded" alt="">
-                    {% endif %}
+    {% else %}
+        <!-- Post normal -->
+        <div class="post-card">
 
-                    {% if post.video %}
-                    <video controls class="w-100 rounded">
-                        <source src="{{ post.video.url }}" type="video/mp4">
-                    </video>
-                    {% endif %}
-                </div>
+            <!-- En-tête -->
+            <div class="p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <img src="{{ post.author.profile.profile_picture.url }}"
+                         class="profile-img me-2">
 
-                <!-- Actions -->
-                <div class="border-top p-2">
-                    <div class="d-flex justify-content-around">
-                        <button class="btn btn-sm btn-light flex-fill"
-                                id="like-btn-{{ post.id }}"
-                                onclick="likePost({{ post.id }})">
-                            <i class="bi bi-heart"></i>
-                            <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
-                        </button>
-                        <a href="{% url 'posts:post_detail' post.id %}"
-                           class="btn btn-sm btn-light flex-fill">
-                            <i class="bi bi-chat"></i> {{ post.comments_count }}
+                    <div class="flex-grow-1">
+                        <a href="{% url 'users:profile' post.author.username %}"
+                           class="text-decoration-none text-dark fw-bold">
+                            {{ post.author.username }}
                         </a>
-                        <button class="btn btn-sm btn-light flex-fill">
-                            <i class="bi bi-share"></i> Partager
-                        </button>
+
+                        <div class="text-muted small">
+                            {{ post.created_at|timesince }} ago
+                        </div>
                     </div>
+
+                    {% if post.author == user %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item text-danger"
+                                   href="{% url 'posts:delete_post' post.id %}">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-            {% empty %}
-            <div class="post-card p-4 text-center">
-                <i class="bi bi-newspaper display-1 text-muted"></i>
-                <h5 class="mt-3">Aucun post à afficher</h5>
-                <p class="text-muted">Commencez à suivre des personnes pour voir leurs posts ici!</p>
+
+            <!-- Contenu -->
+            <div class="p-3">
+                <p>{{ post.content }}</p>
+
+                {% if post.image %}
+                <img src="{{ post.image.url }}" class="img-fluid rounded">
+                {% endif %}
+
+                {% if post.video %}
+                <video controls class="w-100 rounded">
+                    <source src="{{ post.video.url }}" type="video/mp4">
+                </video>
+                {% endif %}
             </div>
-            {% endfor %}
+
+            <!-- Actions -->
+            <div class="border-top p-2">
+                <div class="d-flex justify-content-around">
+                    <button class="btn btn-sm btn-light flex-fill"
+                            id="like-btn-{{ post.id }}"
+                            onclick="likePost({{ post.id }})">
+                        <i class="bi bi-heart"></i>
+                        <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+                    </button>
+
+                    <a href="{% url 'posts:post_detail' post.id %}"
+                       class="btn btn-sm btn-light flex-fill">
+                        <i class="bi bi-chat"></i> {{ post.comments_count }}
+                    </a>
+
+                    <button class="btn btn-sm btn-light flex-fill"
+                            data-bs-toggle="modal"
+                            data-bs-target="#shareModal{{ post.id }}">
+                        <i class="bi bi-share"></i>
+                        <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        {% include 'posts/share_post_modal.html' %}
+    {% endif %}
+
+{% empty %}
+<div class="post-card p-4 text-center">
+    <i class="bi bi-newspaper display-1 text-muted"></i>
+    <h5 class="mt-3">Aucun post à afficher</h5>
+    <p class="text-muted">Commencez à suivre des personnes pour voir leurs posts ici!</p>
+</div>
+{% endfor %}
 
             <!-- Pagination -->
             {% if posts.has_other_pages %}
@@ -131,6 +153,41 @@
                 </ul>
             </nav>
             {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4 d-none d-lg-block">
+            <div class="sidebar">
+                <!-- Profil utilisateur -->
+                <div class="post-card p-3 mb-3">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ user.profile.get_profile_picture_url }}"
+                             alt="" class="profile-img me-2">
+                        <div>
+                            <a href="{% url 'users:profile' user.username %}"
+                               class="text-decoration-none text-dark fw-bold d-block">
+                                {{ user.username }}
+                            </a>
+                            <small class="text-muted">@{{ user.username }}</small>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-around mt-3 pt-3 border-top">
+                        <a href="{% url 'social:followers_list' user.username %}"
+                           class="text-decoration-none text-center">
+                            <div class="fw-bold">{{ user.profile.followers_count }}</div>
+                            <small class="text-muted">Abonnés</small>
+                        </a>
+                        <a href="{% url 'social:following_list' user.username %}"
+                           class="text-decoration-none text-center">
+                            <div class="fw-bold">{{ user.profile.following_count }}</div>
+                            <small class="text-muted">Abonnements</small>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Suggestions -->
+                {% include 'includes/suggestions_sidebar.html' %}
+            </div>
         </div>
     </div>
 </div>

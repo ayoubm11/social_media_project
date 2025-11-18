@@ -15,7 +15,7 @@
 
         <!-- Informations du profil -->
         <div class="p-4 position-relative">
-            <img src="{{ profile_user.profile.profile_picture.url }}"
+            <img src="{{ profile_user.profile.get_profile_picture_url }}"
                  alt="" class="profile-img-lg position-absolute"
                  style="top: -75px; left: 30px;">
 
@@ -52,7 +52,7 @@
             </div>
 
             <div class="d-flex gap-4 mt-3">
-                <a href="{% url 'users:profile' user.username %}" class="text-decoration-none text-dark">
+                <a href="{% url 'users:profile' profile_user.username %}" class="text-decoration-none text-dark">
                     <strong>{{ profile_user.profile.posts_count }}</strong>
                     <span class="text-muted">Posts</span>
                 </a>
@@ -74,42 +74,78 @@
             <h4 class="mb-3">Posts</h4>
 
             {% for post in posts %}
-            <div class="post-card">
-                <div class="p-3 border-bottom">
-                    <div class="d-flex align-items-center">
-                        <img src="{{ post.author.profile.profile_picture.url }}" alt="" class="profile-img me-2">
-                        <div>
-                            <div class="fw-bold">{{ post.author.username }}</div>
-                            <div class="text-muted small">{{ post.created_at|timesince }} ago</div>
+
+            {% if post.is_shared %}
+                <!-- Post partagé -->
+                {% include 'posts/components/shared_post_card.html' %}
+            {% else %}
+                <!-- Post normal -->
+                <div class="post-card">
+                    <div class="p-3 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <img src="{{ post.author.profile.get_profile_picture_url }}" alt="" class="profile-img me-2">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ post.author.username }}</div>
+                                <div class="text-muted small">{{ post.created_at|timesince }} ago</div>
+                            </div>
+                            {% if post.author == user %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item text-danger"
+                                           href="{% url 'posts:delete_post' post.id %}">
+                                            <i class="bi bi-trash"></i> Supprimer
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="p-3">
+                        <p>{{ post.content }}</p>
+
+                        {% if post.image %}
+                        <img src="{{ post.image.url }}" class="img-fluid rounded" alt="">
+                        {% endif %}
+
+                        {% if post.video %}
+                        <video controls class="w-100 rounded">
+                            <source src="{{ post.video.url }}" type="video/mp4">
+                        </video>
+                        {% endif %}
+                    </div>
+
+                    <div class="border-top p-2">
+                        <div class="d-flex justify-content-around">
+                            <button class="btn btn-sm btn-light flex-fill"
+                                    id="like-btn-{{ post.id }}"
+                                    onclick="likePost({{ post.id }})">
+                                <i class="bi bi-heart"></i>
+                                <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+                            </button>
+                            <a href="{% url 'posts:post_detail' post.id %}"
+                               class="btn btn-sm btn-light flex-fill">
+                                <i class="bi bi-chat"></i> {{ post.comments_count }}
+                            </a>
+                            <button class="btn btn-sm btn-light flex-fill"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#shareModal{{ post.id }}">
+                                <i class="bi bi-share"></i>
+                                <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="p-3">
-                    <p>{{ post.content }}</p>
+                <!-- Modal de partage -->
+                {% include 'posts/share_post_modal.html' %}
+            {% endif %}
 
-                    {% if post.image %}
-                    <img src="{{ post.image.url }}" class="img-fluid rounded" alt="">
-                    {% endif %}
-
-                    {% if post.video %}
-                    <video controls class="w-100 rounded">
-                        <source src="{{ post.video.url }}" type="video/mp4">
-                    </video>
-                    {% endif %}
-                </div>
-
-                <div class="border-top p-2">
-                    <div class="d-flex justify-content-around">
-                        <button class="btn btn-sm btn-light flex-fill" onclick="likePost({{ post.id }})">
-                            <i class="bi bi-heart"></i> {{ post.likes_count }}
-                        </button>
-                        <a href="{% url 'posts:post_detail' post.id %}" class="btn btn-sm btn-light flex-fill">
-                            <i class="bi bi-chat"></i> {{ post.comments_count }}
-                        </a>
-                    </div>
-                </div>
-            </div>
             {% empty %}
             <div class="post-card p-4 text-center">
                 <i class="bi bi-file-earmark-text display-1 text-muted"></i>
@@ -119,4 +155,6 @@
         </div>
     </div>
 </div>
+
+
 {% endblock %}

@@ -67,11 +67,11 @@
                     <div class="d-flex gap-3 text-muted small">
                         <span>
                             <strong id="like-count-{{ post.id }}">{{ post.likes_count }}</strong>
-                            J'aime
+                            {% if post.likes_count > 1 %}J'aime{% else %}J'aime{% endif %}
                         </span>
                         <span>
                             <strong>{{ post.comments_count }}</strong>
-                            Commentaire{{ post.comments_count|pluralize }}
+                            {% if post.comments_count > 1 %}Commentaires{% else %}Commentaire{% endif %}
                         </span>
                     </div>
                 </div>
@@ -89,8 +89,11 @@
                                 onclick="document.getElementById('comment-form').focus()">
                             <i class="bi bi-chat"></i> Commenter
                         </button>
-                        <button class="btn btn-sm btn-light flex-fill">
-                            <i class="bi bi-share"></i> Partager
+                        <button class="btn btn-sm btn-light flex-fill"
+                                data-bs-toggle="modal"
+                                data-bs-target="#shareModal{{ post.id }}">
+                            <i class="bi bi-share"></i>
+                            <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
                         </button>
                     </div>
                 </div>

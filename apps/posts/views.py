@@ -253,3 +253,110 @@ def delete_comment(request, pk):
         return redirect('posts:post_detail', pk=post_id)
 
     return render(request, 'posts/delete_comment_confirm.html', {'comment': comment})
+
+
+@login_required
+def share_post(request, pk):
+    """Partager un post (style Facebook)"""
+    original_post = get_object_or_404(Post, pk=pk)
+
+    # Si le post est déjà un post partagé, récupérer le post original
+    if original_post.is_shared and original_post.shared_post:
+        original_post = original_post.shared_post
+
+    # Vérifier si l'utilisateur a déjà partagé ce post
+    already_shared = Post.objects.filter(
+        author=request.user,
+        shared_post=original_post,
+        is_shared=True
+    ).exists()
+
+    if already_shared:
+        return JsonResponse({
+            'error': 'Vous avez déjà partagé ce post',
+            'already_shared': True
+        }, status=400)
+
+    if request.method == 'POST':
+        # Récupérer le commentaire optionnel de l'utilisateur
+        user_comment = request.POST.get('comment', '').strip()
+        share_type = request.POST.get('share_type', 'with_comment')  # 'with_comment' ou 'share_now'
+
+        # Créer un nouveau post de type "shared"
+        if share_type == 'share_now':
+            # Partage rapide sans commentaire
+            content = f"A partagé le post de {original_post.author.username}"
+        else:
+            # Partage avec commentaire personnalisé
+            content = user_comment if user_comment else f"A partagé le post de {original_post.author.username}"
+
+        shared_post = Post.objects.create(
+            author=request.user,
+            content=content,
+            post_type='shared',
+            shared_post=original_post,
+            is_shared=True
+        )
+
+        # Incrémenter le compteur de partages du post original
+        original_post.shares_count += 1
+        original_post.save()
+
+        # Mettre à jour le compteur de posts de l'utilisateur
+        request.user.profile.posts_count += 1
+        request.user.profile.save()
+
+        # Créer une notification pour l'auteur du post original
+        if original_post.author != request.user:
+            Notification.objects.create(
+                recipient=original_post.author,
+                sender=request.user,
+                notification_type='like',  # Utiliser 'like' ou créer un nouveau type 'share'
+                post=original_post,
+                message=f"{request.user.username} a partagé votre post"
+            )
+
+        # Retourner en JSON pour AJAX
+        return JsonResponse({
+            'success': True,
+            'shares_count': original_post.shares_count,
+            'shared_post_id': shared_post.id,
+            'message': 'Post partagé avec succès',
+            'redirect_url': f'/users/profile/{request.user.username}/'
+        })
+
+    # Si GET, retourner les données du post pour le modal
+    return JsonResponse({
+        'post_id': original_post.id,
+        'post_content': original_post.content,
+        'post_author': original_post.author.username,
+        'post_image': original_post.image.url if original_post.image else None,
+        'has_already_shared': already_shared
+    })
+
+
+@login_required
+def unshare_post(request, pk):
+    """Annuler le partage d'un post"""
+    shared_post = get_object_or_404(Post, pk=pk, author=request.user, is_shared=True)
+
+    if request.method == 'POST':
+        original_post = shared_post.shared_post
+
+        # Décrémenter le compteur
+        if original_post:
+            original_post.shares_count -= 1
+            original_post.save()
+
+        # Mettre à jour le compteur de posts de l'utilisateur
+        request.user.profile.posts_count -= 1
+        request.user.profile.save()
+
+        shared_post.delete()
+
+        return JsonResponse({
+            'success': True,
+            'shares_count': original_post.shares_count if original_post else 0
+        })
+
+    return JsonResponse({'error': 'Method not allowed'}, status=405)

@@ -1,0 +1,113 @@
+<div class="post-card">
+    <!-- En-tête du partage -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="d-flex align-items-center">
+            <img src="{{ post.author.profile.get_profile_picture_url }}"
+                 alt="" class="profile-img me-2">
+            <div class="flex-grow-1">
+                <a href="{% url 'users:profile' post.author.username %}"
+                   class="text-decoration-none text-dark fw-bold">
+                    {{ post.author.username }}
+                </a>
+                <span class="text-muted"> a partagé</span>
+                <div class="text-muted small">
+                    {{ post.created_at|timesince }} ago
+                </div>
+            </div>
+
+            {% if post.author == user %}
+            <div class="dropdown">
+                <button class="btn btn-sm" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item text-danger"
+                           href="#"
+                           onclick="unsharePost(event, {{ post.id }})">
+                            <i class="bi bi-x-circle"></i> Annuler le partage
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Commentaire de l'utilisateur qui partage -->
+    {% if post.has_custom_share_message %}
+    <div class="p-3">
+        <p class="mb-0">{{ post.content }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Post original dans un cadre -->
+    {% if post.shared_post %}
+    <div class="mx-3 mb-3 border rounded">
+        <div class="p-3 border-bottom">
+            <div class="d-flex align-items-center">
+                <a href="{% url 'users:profile' post.shared_post.author.username %}">
+                    <img src="{{ post.shared_post.author.profile.get_profile_picture_url }}"
+                         alt="" class="profile-img me-2">
+                </a>
+                <div>
+                    <a href="{% url 'users:profile' post.shared_post.author.username %}"
+                       class="text-decoration-none text-dark fw-bold">
+                        {{ post.shared_post.author.username }}
+                    </a>
+                    <div class="text-muted small">
+                        {{ post.shared_post.created_at|timesince }} ago
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-3">
+            <p>{{ post.shared_post.content }}</p>
+
+            {% if post.shared_post.image %}
+            <img src="{{ post.shared_post.image.url }}" class="img-fluid rounded" alt="">
+            {% endif %}
+
+            {% if post.shared_post.video %}
+            <video controls class="w-100 rounded">
+                <source src="{{ post.shared_post.video.url }}" type="video/mp4">
+            </video>
+            {% endif %}
+        </div>
+
+        <!-- Statistiques du post original -->
+        <div class="px-3 py-2 border-top">
+            <div class="d-flex gap-3 text-muted small">
+                <span><i class="bi bi-heart"></i> {{ post.shared_post.likes_count }}</span>
+                <span><i class="bi bi-chat"></i> {{ post.shared_post.comments_count }}</span>
+                <span><i class="bi bi-share"></i> {{ post.shared_post.shares_count }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions sur le post partagé -->
+    <div class="border-top p-2">
+        <div class="d-flex justify-content-around">
+            <button class="btn btn-sm btn-light flex-fill"
+                    onclick="likePost({{ post.shared_post.id }})">
+                <i class="bi bi-heart"></i> J'aime
+            </button>
+            <a href="{% url 'posts:post_detail' post.shared_post.id %}"
+               class="btn btn-sm btn-light flex-fill">
+                <i class="bi bi-chat"></i> Commenter
+            </a>
+            <button class="btn btn-sm btn-light flex-fill"
+                    data-bs-toggle="modal"
+                    data-bs-target="#shareModal{{ post.shared_post.id }}">
+                <i class="bi bi-share"></i> Partager
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de partage pour le post original -->
+{% if post.shared_post %}
+{% include 'posts/share_post_modal.html' with post=post.shared_post %}
+{% endif %}

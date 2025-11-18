@@ -27,7 +27,6 @@ urlpatterns = [
     path('social/', include('apps.social.urls', namespace='social')),
     path('api/', include('apps.api.urls', namespace='api')),
 
-    # Auth URLs
     path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 ]

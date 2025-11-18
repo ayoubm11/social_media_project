@@ -133,13 +133,14 @@
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                               <form id="logout-form" method="post" action="{% url 'logout' %}">
-    {% csrf_token %}
-    <button type="submit" class="dropdown-item">
-        <i class="bi bi-box-arrow-right"></i> Déconnexion
-    </button>
-</form>
-                            </li>
+    <form id="logout-form" method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="dropdown-item">
+            <i class="bi bi-box-arrow-right"></i> Déconnexion
+        </button>
+    </form>
+</li>
+
                         </ul>
                     </li>
                 </ul>
@@ -176,75 +177,232 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Fonction pour liker un post
-        function likePost(postId) {
-            fetch(`/post/${postId}/like/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                const likeBtn = document.getElementById(`like-btn-${postId}`);
-                const likeCount = document.getElementById(`like-count-${postId}`);
-
-                if (data.liked) {
-                    likeBtn.classList.add('text-primary');
-                } else {
-                    likeBtn.classList.remove('text-primary');
-                }
-
-                likeCount.textContent = data.likes_count;
-            });
-        }
-
-        // Fonction pour suivre un utilisateur
-        function followUser(username) {
-            fetch(`/social/follow/${username}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                const followBtn = document.getElementById('follow-btn');
-                const followersCount = document.getElementById('followers-count');
-
-                if (data.following) {
-                    followBtn.textContent = 'Ne plus suivre';
-                    followBtn.classList.remove('btn-primary');
-                    followBtn.classList.add('btn-outline-primary');
-                } else {
-                    followBtn.textContent = 'Suivre';
-                    followBtn.classList.remove('btn-outline-primary');
-                    followBtn.classList.add('btn-primary');
-                }
-
-                followersCount.textContent = data.followers_count;
-            });
-        }
-
-        // Helper pour obtenir le CSRF token
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+    /* -----------------------------
+       LIKE POST
+    ----------------------------- */
+    function likePost(postId) {
+        fetch(`/post/${postId}/like/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
             }
-            return cookieValue;
-        }
-    </script>
+        })
+        .then(response => response.json())
+        .then(data => {
+            const likeBtn = document.getElementById(`like-btn-${postId}`);
+            const likeCount = document.getElementById(`like-count-${postId}`);
 
-    {% block extra_js %}{% endblock %}
+            if (data.liked) {
+                likeBtn.classList.add('text-primary');
+            } else {
+                likeBtn.classList.remove('text-primary');
+            }
+
+            if (likeCount) {
+                likeCount.textContent = data.likes_count;
+            }
+        });
+    }
+
+    /* -----------------------------
+       SHARE NOW (partage rapide)
+    ----------------------------- */
+    function shareNow(postId) {
+        if (!confirm('Partager ce post sur votre fil ?')) return;
+
+        const formData = new FormData();
+        formData.append('share_type', 'share_now');
+
+        fetch(`/post/${postId}/share/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(
+                    document.getElementById(`shareModal${postId}`)
+                );
+                if (modal) modal.hide();
+
+                updateShareCount(postId, data.shares_count);
+                showShareSuccess(data.shared_post_id);
+            } else if (data.already_shared) {
+                showToast('Vous avez déjà partagé ce post', 'warning');
+            } else {
+                showToast('Erreur lors du partage', 'danger');
+            }
+        })
+        .catch(() => showToast('Erreur lors du partage', 'danger'));
+    }
+
+    /* -----------------------------
+       SHARE WITH COMMENT (partage normal)
+    ----------------------------- */
+    function submitShare(event, postId) {
+        event.preventDefault();
+
+        const form = document.getElementById(`shareForm${postId}`);
+        const formData = new FormData(form);
+
+        fetch(`/post/${postId}/share/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(
+                    document.getElementById(`shareModal${postId}`)
+                );
+                if (modal) modal.hide();
+
+                updateShareCount(postId, data.shares_count);
+                showShareSuccess(data.shared_post_id);
+            } else if (data.already_shared) {
+                showToast('Vous avez déjà partagé ce post', 'warning');
+            } else {
+                showToast('Erreur lors du partage', 'danger');
+            }
+        })
+        .catch(() => showToast('Erreur lors du partage', 'danger'));
+    }
+
+
+    /* -----------------------------
+       UNSHARE POST
+    ----------------------------- */
+    function unsharePost(event, postId) {
+        event.preventDefault();
+
+        if (!confirm('Voulez-vous vraiment annuler le partage ?')) return;
+
+        fetch(`/post/${postId}/unshare/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Partage annulé', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }
+        });
+    }
+
+
+    /* -----------------------------
+       FOLLOW / UNFOLLOW USER
+    ----------------------------- */
+    function followUser(username) {
+        fetch(`/social/follow/${username}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const followBtn = document.getElementById('follow-btn');
+            const followersCount = document.getElementById('followers-count');
+
+            if (data.following) {
+                followBtn.textContent = 'Ne plus suivre';
+                followBtn.classList.replace('btn-primary', 'btn-outline-primary');
+            } else {
+                followBtn.textContent = 'Suivre';
+                followBtn.classList.replace('btn-outline-primary', 'btn-primary');
+            }
+
+            if (followersCount) {
+                followersCount.textContent = data.followers_count;
+            }
+        });
+    }
+
+
+    /* -----------------------------
+       SHARE COUNTER UPDATE
+    ----------------------------- */
+    function updateShareCount(postId, count) {
+        const shareCount = document.getElementById(`share-count-${postId}`);
+        if (shareCount) shareCount.textContent = count;
+    }
+
+
+    /* -----------------------------
+       SUCCESS MESSAGE (style Facebook)
+    ----------------------------- */
+    function showShareSuccess() {
+        const alertHtml = `
+            <div class="alert alert-success alert-dismissible fade show position-fixed"
+                 style="top: 70px; right: 20px; z-index: 9999; min-width: 300px;">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill fs-4 me-2"></i>
+                    <div><strong>Post partagé</strong><br><small>Visible sur votre profil</small></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+
+        const el = document.createElement('div');
+        el.innerHTML = alertHtml;
+        document.body.appendChild(el);
+
+        setTimeout(() => el.remove(), 4000);
+        setTimeout(() => location.reload(), 1500);
+    }
+
+
+    /* -----------------------------
+       TOAST NOTIFICATION
+    ----------------------------- */
+    function showToast(message, type='info') {
+        const toastHtml = `
+            <div class="toast text-white bg-${type} position-fixed border-0"
+                 style="top:20px; right:20px; z-index:9999;">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        const el = document.createElement('div');
+        el.innerHTML = toastHtml;
+        document.body.appendChild(el);
+
+        const toast = new bootstrap.Toast(el.querySelector('.toast'));
+        toast.show();
+
+        setTimeout(() => el.remove(), 3000);
+    }
+
+
+    /* -----------------------------
+       CSRF TOKEN
+    ----------------------------- */
+    function getCookie(name) {
+        let cookieValue = null;
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+            const trimmed = cookie.trim();
+            if (trimmed.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+                break;
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+{% block extra_js %}{% endblock %}
 </body>
 </html>
