@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q, Count
 from apps.users.models import CustomUser
-from .models import Follow, Notification
+from .models import Follow, Notification, Conversation, Message
 
 
 @login_required
@@ -199,3 +199,45 @@ def search_users(request):
         'user_following_ids': list(user_following_ids),
     }
     return render(request, 'social/search_users.html', context)
+
+
+@login_required
+def start_chat(request, username):
+    """Afficher la page de démarrage de chat avec un utilisateur cible."""
+    user_to_chat = get_object_or_404(CustomUser, username=username)
+
+    # Ne pas permettre de chatter avec soi-même — rediriger vers le profil
+    if user_to_chat == request.user:
+        return redirect('users:profile', username=request.user.username)
+
+    # Trouver une conversation existante entre les deux utilisateurs (avec filtrage direct)
+    conversations = Conversation.objects.filter(participants=request.user).filter(participants=user_to_chat)
+    # Filtrer celles avec exactement 2 participants
+    conversation = None
+    for conv in conversations:
+        if conv.participants.count() == 2:
+            conversation = conv
+            break
+    
+    if not conversation:
+        conversation = Conversation.objects.create()
+        conversation.participants.add(request.user, user_to_chat)
+
+    # Récupérer les messages existants
+    msgs = Message.objects.filter(conversation=conversation).select_related('sender')
+    messages = [
+        {
+            'id': m.id,
+            'sender': m.sender.username,
+            'content': m.content,
+            'created_at': m.created_at.isoformat()
+        }
+        for m in msgs
+    ]
+
+    context = {
+        'target_user': user_to_chat,
+        'conversation': conversation,
+        'messages': messages,
+    }
+    return render(request, 'social/start_chat.html', context)

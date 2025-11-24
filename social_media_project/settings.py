@@ -39,11 +39,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Third party apps
+    'daphne',
     'crispy_forms',
     'crispy_bootstrap5',
     'rest_framework',
     'corsheaders',
     'django_filters',
+    'channels',
 
     # Local apps
     'apps.users',
@@ -82,6 +84,19 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'social_media_project.wsgi.application'
+
+# ASGI / Channels
+ASGI_APPLICATION = 'social_media_project.asgi.application'
+
+# Channels layer using Redis (requires channels-redis and a running Redis server)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 
 # Database

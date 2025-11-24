@@ -25,10 +25,16 @@
                     <i class="bi bi-pencil"></i> Modifier le profil
                 </a>
                 {% else %}
-                <button id="follow-btn" class="btn {% if is_following %}btn-outline-primary{% else %}btn-primary{% endif %}"
-                        onclick="followUser('{{ profile_user.username }}')">
-                    {% if is_following %}Ne plus suivre{% else %}Suivre{% endif %}
-                </button>
+                <div class="d-flex gap-2">
+                    <button id="follow-btn" class="btn {% if is_following %}btn-outline-primary{% else %}btn-primary{% endif %}"
+                            onclick="followUser('{{ profile_user.username }}')">
+                        {% if is_following %}Ne plus suivre{% else %}Suivre{% endif %}
+                    </button>
+
+                    <a href="{% url 'social:start_chat' profile_user.username %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-chat-dots"></i> Chatter
+                    </a>
+                </div>
                 {% endif %}
             </div>
 
