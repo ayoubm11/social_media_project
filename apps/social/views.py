@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Max
 from apps.users.models import CustomUser
 from .models import Follow, Notification, Conversation, Message
 
@@ -199,6 +199,66 @@ def search_users(request):
         'user_following_ids': list(user_following_ids),
     }
     return render(request, 'social/search_users.html', context)
+
+
+@login_required
+def list_conversations(request):
+    """Liste toutes les conversations de l'utilisateur connecté"""
+    # Récupérer toutes les conversations où l'utilisateur est participant
+    # Filtrer uniquement les conversations avec exactement 2 participants
+    conversations = Conversation.objects.filter(participants=request.user).annotate(
+        participant_count=Count('participants'),
+        last_message_time=Max('messages__created_at')
+    ).filter(participant_count=2).prefetch_related('participants', 'participants__profile', 'messages__sender')
+    
+    # Préparer les données pour chaque conversation
+    conversations_list = []
+    for conv in conversations:
+        # Trouver l'autre participant (celui qui n'est pas l'utilisateur connecté)
+        other_participant = None
+        for participant in conv.participants.all():
+            if participant.id != request.user.id:
+                other_participant = participant
+                break
+        
+        # Si pas d'autre participant, passer à la suivante
+        if not other_participant:
+            continue
+        
+        # Récupérer le dernier message
+        last_message = conv.messages.order_by('-created_at').first()
+        
+        # Compter les messages non lus (seulement ceux de l'autre participant)
+        unread_count = conv.messages.filter(
+            sender=other_participant,
+            read_at__isnull=True
+        ).count()
+        
+        # Déterminer si le dernier message est envoyé par l'utilisateur connecté
+        is_sender = last_message and last_message.sender.id == request.user.id if last_message else False
+        
+        conversations_list.append({
+            'conversation': conv,
+            'other_participant': other_participant,
+            'last_message': last_message,
+            'is_sender': is_sender,
+            'unread_count': unread_count,
+        })
+    
+    # Trier par date du dernier message (ou date de création si pas de message)
+    from django.utils import timezone
+    def get_sort_date(item):
+        conv = item['conversation']
+        if hasattr(conv, 'last_message_time') and conv.last_message_time:
+            return conv.last_message_time
+        return getattr(conv, 'created_at', timezone.now())
+    
+    conversations_list.sort(key=get_sort_date, reverse=True)
+    
+    context = {
+        'conversations_list': conversations_list,
+    }
+    return render(request, 'social/conversations_list.html', context)
 
 
 @login_required

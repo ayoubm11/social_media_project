@@ -5,6 +5,7 @@ app_name = 'social'
 
 urlpatterns = [
     path('follow/<str:username>/', views.follow_user, name='follow_user'),
+    path('conversations/', views.list_conversations, name='list_conversations'),
     path('chat/<str:username>/', views.start_chat, name='start_chat'),
     path('notifications/', views.notifications, name='notifications'),
     path('notifications/<int:pk>/read/', views.mark_notification_read, name='mark_notification_read'),
